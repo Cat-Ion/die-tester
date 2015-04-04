@@ -12,3 +12,5 @@ The arduino code is set up to control a stepper motor through
 a stepstick motor driver, and the image grabbing currently uses
 gphoto2 to get an image from my DSLR - if your setup is different,
 you'll have to adapt the code to reflect that.
+
+The project's website is [on my homepage](http://0au.de/project/electronics/automatic-die-tester/)
