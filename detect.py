@@ -33,6 +33,9 @@ def match_img(flann, scene, needle):
         return (False, None, scene.img, None, good)
 
 def detect_side(dice, img):
+    global disp_img
+    global cv_display
+
     image.process(sift, img)
     num = [ 0 for i in range(sides) ]
     for i in range(sides):
@@ -41,19 +44,20 @@ def detect_side(dice, img):
             num[i] += len(good)
 
     ret = -1
-    if sum(num) == 0:
-        return -1, img
-    for n in range(sides):
-        if num[n]*3 >= sum(num)*2:
-            ret = n
-            break
+    if sum(num) != 0:
+        for n in range(sides):
+            if num[n]*3 >= sum(num)*2:
+                ret = n
+                break
 
     if ret != -1:
         img.img[0:dice[ret].img.shape[0],
                 0:dice[ret].img.shape[1]] = dice[ret].img
 
-    cv2.imshow('frame', img.img)
-    key = cv2.waitKey(1000) & 0xFF
+    cv_display.acquire()
+    disp_img = img.img
+    cv_display.notify()
+    cv_display.release()
     print(num)
 
     return ret, img
@@ -61,8 +65,10 @@ def detect_side(dice, img):
 cv_shake   = threading.Condition()
 cv_grab    = threading.Condition()
 cv_process = threading.Condition()
-img_lock = threading.Lock()
 grabbed_image = None
+
+cv_display = threading.Condition()
+disp_img = None
 
 do_shake = False
 do_grab = False
@@ -118,6 +124,32 @@ def grab_thread():
 
         cv_grab.release()
 
+def display_thread():
+    global cv_display
+    global disp_img
+    global running
+
+    i = None
+    while running and i == None:
+        cv_display.acquire()
+        cv_display.wait()
+        if disp_img != None:
+            i = disp_img
+            cv2.imshow('frame', i)
+            disp_img = None
+        cv_display.release()
+    
+    while running:
+        cv_display.acquire()
+        if disp_img != None:
+            i = disp_img
+            cv2.imshow('frame', i)
+            disp_img = None
+        cv_display.release()
+        key = cv2.waitKey(20) & 0xFF
+        if key == ord('q'):
+            running = False
+
 cv2.namedWindow('frame', cv2.WINDOW_NORMAL)
 
 sift = cv2.SIFT()
@@ -135,6 +167,7 @@ motor.init("/dev/ttyUSB0", 9600)
 
 threading.Thread(target = shake_thread).start()
 threading.Thread(target = grab_thread).start()
+threading.Thread(target = display_thread).start()
 
 cv_shake.acquire()
 cv_shake.notify()
@@ -166,8 +199,6 @@ while running:
         added += 1
     else:
         cv2.imwrite("failure.png", img.img)
-        print("Exit")
-        running = False
     if added > 0:
         print(n, [int(n * 100. / added) for n in num])
 
