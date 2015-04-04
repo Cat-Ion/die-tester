@@ -165,7 +165,7 @@ while running:
         log.flush()
         added += 1
     else:
-        cv2.imwrite("processed.png", img.img)
+        cv2.imwrite("failure.png", img.img)
         print("Exit")
         running = False
     if added > 0:
